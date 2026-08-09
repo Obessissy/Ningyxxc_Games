@@ -1,0 +1,1629 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0d0d">
+  <title>你先 · 第一部分试玩</title>
+  <style>
+    :root {
+      --ink: #f4f0e8;
+      --muted: rgba(244, 240, 232, 0.62);
+      --faint: rgba(244, 240, 232, 0.24);
+      --warm: #d7b27b;
+      --cool: #b6c9c7;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0b0c0c;
+      color: var(--ink);
+    }
+
+    body {
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    #game {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background: #0b0c0c;
+    }
+
+    #blurBackdrop,
+    #wash,
+    #blackout {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #blurBackdrop {
+      background-position: center;
+      background-size: cover;
+      filter: blur(22px) brightness(0.46) saturate(0.72);
+      transform: scale(1.08);
+      opacity: 0.86;
+      transition: background-image 900ms ease, opacity 900ms ease;
+    }
+
+    #wash {
+      background:
+        linear-gradient(180deg, rgba(4, 5, 5, 0.1), rgba(4, 5, 5, 0.28)),
+        radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.52) 100%);
+    }
+
+    #blackout {
+      z-index: 30;
+      background: #050606;
+      opacity: 0;
+      transition: opacity 800ms ease;
+    }
+
+    #blackout.visible {
+      opacity: 1;
+    }
+
+    #transitionText {
+      position: absolute;
+      z-index: 31;
+      left: 50%;
+      top: 50%;
+      width: min(88vw, 760px);
+      transform: translate(-50%, -50%);
+      color: rgba(248, 244, 234, 0.88);
+      font-size: 16px;
+      line-height: 1.8;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 700ms ease;
+    }
+
+    #transitionText.visible {
+      opacity: 1;
+    }
+
+    .game-shell {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(22px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(22px + var(--safe-left));
+    }
+
+    .topbar,
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 30px;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .topbar small {
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    #chapterName {
+      transition: opacity 400ms ease;
+    }
+
+    .progress {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .progress i {
+      display: block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--faint);
+      transition: width 300ms ease, background 300ms ease;
+    }
+
+    .progress i.active {
+      width: 18px;
+      background: var(--warm);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 0;
+    }
+
+    .image-frame {
+      position: relative;
+      width: min(100%, 1280px);
+      max-height: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      box-shadow: 0 26px 90px rgba(0, 0, 0, 0.42);
+      transition: opacity 700ms ease, transform 700ms ease, filter 700ms ease;
+    }
+
+    .image-frame.faded {
+      opacity: 0;
+      transform: scale(1.018);
+      filter: blur(4px);
+    }
+
+    .image-frame.dizzy {
+      animation: dizzy 2.9s ease-in-out both;
+    }
+
+    .scene-image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      background: rgba(10, 12, 12, 0.64);
+    }
+
+    .image-frame::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.14), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.14)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 30%, rgba(0, 0, 0, 0.18));
+    }
+
+    .hotspot-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+    }
+
+    .hotspot {
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w, 12%);
+      height: var(--h, 16%);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 240ms ease, border-color 240ms ease, background 240ms ease;
+    }
+
+    .image-frame.ready .hotspot {
+      opacity: 1;
+    }
+
+    .hotspot:hover,
+    .hotspot:focus-visible {
+      outline: none;
+      border-color: rgba(237, 220, 184, 0.42);
+      background: rgba(237, 220, 184, 0.08);
+    }
+
+    .hotspot.locked {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .hotspot.locked::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(236, 232, 220, 0.22);
+      transform: translate(-50%, -50%);
+    }
+
+    .hotspot.available::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border: 1px solid rgba(238, 222, 185, 0.58);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      animation: breathe 2.6s ease-in-out infinite;
+    }
+
+    .scene-title {
+      position: absolute;
+      z-index: 5;
+      left: 50%;
+      top: 20px;
+      transform: translateX(-50%);
+      color: rgba(247, 242, 231, 0.68);
+      font-size: 13px;
+      opacity: 0.9;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+    }
+
+    .dialogue {
+      position: absolute;
+      z-index: 12;
+      left: 50%;
+      bottom: 9%;
+      width: min(92vw, 760px);
+      transform: translate(-50%, 14px);
+      padding: 14px 18px 13px;
+      border-top: 1px solid rgba(248, 238, 216, 0.28);
+      background: linear-gradient(180deg, rgba(7, 8, 8, 0.08), rgba(7, 8, 8, 0.72));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 420ms ease, transform 420ms ease;
+    }
+
+    .dialogue.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+      pointer-events: auto;
+    }
+
+    .speaker {
+      margin-right: 10px;
+      color: var(--warm);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dialogue-text {
+      color: rgba(248, 244, 234, 0.95);
+      font-size: 16px;
+      line-height: 1.75;
+      letter-spacing: 0;
+    }
+
+    .dialogue-action {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 5px;
+      min-height: 20px;
+    }
+
+    .next {
+      border: 0;
+      padding: 2px 0;
+      color: rgba(248, 244, 234, 0.48);
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .next::after {
+      content: "  ·";
+      color: var(--warm);
+    }
+
+    .next:hover {
+      color: rgba(248, 244, 234, 0.88);
+    }
+
+    .hint {
+      color: rgba(244, 240, 232, 0.44);
+      font-size: 12px;
+      transition: opacity 400ms ease;
+    }
+
+    .restart {
+      display: none;
+      border: 0;
+      border-bottom: 1px solid rgba(244, 240, 232, 0.3);
+      padding: 3px 0;
+      color: rgba(244, 240, 232, 0.72);
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .restart.visible {
+      display: block;
+    }
+
+    .completion {
+      position: absolute;
+      z-index: 16;
+      left: 50%;
+      top: 50%;
+      width: min(90vw, 460px);
+      transform: translate(-50%, -50%);
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 900ms ease;
+    }
+
+    .completion.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .memory-text {
+      position: absolute;
+      z-index: 32;
+      left: 50%;
+      top: 50%;
+      width: min(88vw, 760px);
+      transform: translate(-50%, -50%);
+      color: rgba(248, 244, 234, 0.88);
+      font-size: 16px;
+      line-height: 2;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1400ms ease;
+    }
+
+    .memory-text.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .completion p {
+      margin: 0 0 20px;
+      color: rgba(248, 244, 234, 0.78);
+      font-size: 15px;
+      line-height: 1.9;
+    }
+
+    .completion button {
+      border: 0;
+      border-bottom: 1px solid rgba(244, 240, 232, 0.32);
+      padding: 4px 0;
+      color: rgba(244, 240, 232, 0.74);
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .scene-bedside {
+      --warm: #d6b27b;
+    }
+
+    .scene-doctor {
+      --warm: #c8b38e;
+    }
+
+    .scene-pharmacy {
+      --warm: #c5b8a6;
+    }
+
+    .scene-mri {
+      --warm: #c4c9bb;
+    }
+
+    .scene-mom-call {
+      --warm: #d0b38c;
+    }
+
+    .scene-wisteria {
+      --warm: #cdb08d;
+    }
+
+    .scene-cemetery {
+      --warm: #d8c9b1;
+    }
+
+    .scene-hallway {
+      --warm: #c7bbb0;
+    }
+
+    .scene-return {
+      --warm: #c5af89;
+    }
+
+    .scene-old-house {
+      --warm: #c49b79;
+    }
+
+    .scene-grandpa-room {
+      --warm: #c7a37d;
+    }
+
+    @keyframes breathe {
+      0%,
+      100% {
+        opacity: 0.3;
+        transform: translate(-50%, -50%) scale(0.86);
+      }
+      50% {
+        opacity: 0.9;
+        transform: translate(-50%, -50%) scale(1.3);
+      }
+    }
+
+    @keyframes dizzy {
+      0% {
+        filter: blur(0) saturate(1) contrast(1);
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      12% {
+        filter: blur(1px) saturate(1.08) contrast(1.04);
+        transform: translate3d(-10px, 5px, 0) rotate(-0.35deg) scale(1.01);
+      }
+      26% {
+        filter: blur(2px) saturate(0.92) contrast(1.08);
+        transform: translate3d(13px, -7px, 0) rotate(0.5deg) scale(1.018);
+      }
+      42% {
+        filter: blur(3px) saturate(0.82) contrast(1.12);
+        transform: translate3d(-16px, 8px, 0) rotate(-0.65deg) scale(1.025);
+      }
+      62% {
+        filter: blur(5px) saturate(0.7) contrast(1.18);
+        transform: translate3d(12px, -6px, 0) rotate(0.45deg) scale(1.032);
+      }
+      82% {
+        filter: blur(8px) saturate(0.55) contrast(1.24);
+        transform: translate3d(-7px, 4px, 0) rotate(-0.28deg) scale(1.04);
+      }
+      100% {
+        filter: blur(12px) saturate(0.36) contrast(1.3);
+        transform: translate3d(0, 0, 0) scale(1.055);
+      }
+    }
+
+    @media (max-width: 700px) {
+      .game-shell {
+        padding:
+          calc(12px + var(--safe-top))
+          calc(12px + var(--safe-right))
+          calc(12px + var(--safe-bottom))
+          calc(12px + var(--safe-left));
+      }
+
+      .topbar,
+      .footer {
+        font-size: 12px;
+      }
+
+      .scene-title {
+        top: 8px;
+        font-size: 12px;
+      }
+
+      .dialogue {
+        bottom: 6%;
+        width: calc(100vw - 24px);
+        padding: 12px 13px 10px;
+      }
+
+      .dialogue-text {
+        font-size: 15px;
+        line-height: 1.72;
+      }
+
+      .hotspot:hover {
+        border-color: transparent;
+        background: transparent;
+      }
+
+      .hint {
+        max-width: 64vw;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="game" class="scene-bedside">
+    <div id="blurBackdrop" aria-hidden="true"></div>
+    <div id="wash" aria-hidden="true"></div>
+
+    <div class="game-shell">
+      <header class="topbar">
+        <span id="chapterName">第一部分 · 病床前</span>
+        <small id="sceneStatus">先坐一会儿</small>
+        <div id="progress" class="progress" aria-hidden="true"></div>
+      </header>
+
+      <section class="stage" id="stage">
+        <div id="imageFrame" class="image-frame">
+          <img id="sceneImage" class="scene-image" alt="">
+          <div id="hotspotLayer" class="hotspot-layer"></div>
+          <div id="sceneTitle" class="scene-title"></div>
+        </div>
+
+        <div id="dialogue" class="dialogue" aria-live="polite">
+          <span id="speaker" class="speaker"></span>
+          <span id="dialogueText" class="dialogue-text"></span>
+          <div class="dialogue-action">
+            <button id="nextButton" class="next" type="button">继续</button>
+          </div>
+        </div>
+
+        <div id="completion" class="completion">
+          <p>你把手机收起来，重新推开了病房的门。</p>
+          <button id="restartButton" type="button">从头再看一遍</button>
+        </div>
+
+      </section>
+
+      <footer class="footer">
+        <span id="hint" class="hint">点一下画面里的物件</span>
+        <button id="restartFooter" class="restart" type="button">重新开始</button>
+      </footer>
+    </div>
+
+    <p id="memoryText" class="memory-text"></p>
+    <p id="transitionText" aria-live="polite"></p>
+    <div id="blackout" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const scenes = {
+        bedside: {
+          className: "scene-bedside",
+          title: "病床前",
+          image: "assets/hospital-bedside-v1.png",
+          status: "点一下画面里的物件",
+          hotspots: [
+            {
+              id: "hand",
+              label: "爷爷的手",
+              x: "72%",
+              y: "72%",
+              w: "23%",
+              h: "20%",
+              dialogue: [
+                ["我", "我来了，爷爷。"],
+                ["爷爷", "你来了啊，快坐吧。"]
+              ]
+            },
+            {
+              id: "paper",
+              label: "纸巾和单据",
+              x: "36%",
+              y: "66%",
+              w: "25%",
+              h: "17%",
+              dialogue: [
+                ["我", "今天外面热得很呢，幸亏这有空调，我擦擦汗。爷爷，今天还疼吗？"],
+                ["爷爷", "好，擦擦汗。疼，但是不妨事。"]
+              ]
+            },
+            {
+              id: "banana",
+              label: "香蕉和水果",
+              x: "7%",
+              y: "54%",
+              w: "31%",
+              h: "22%",
+              dialogue: [
+                ["我", "爷爷你吃香蕉吧，我给你剥一根。"],
+                ["爷爷", "我不吃，这还有桃，你也吃点。我记得你小时候最爱吃桃子了。"]
+              ],
+              effect: "soften"
+            },
+            {
+              id: "window",
+              label: "窗户",
+              x: "87%",
+              y: "32%",
+              w: "13%",
+              h: "34%",
+              dialogue: [
+                ["我", "爷爷，需不需要我关上窗户啊，有风，会不会着凉？"],
+                ["爷爷", "没事，吹吹风也挺好，现在外面热，不会着凉的。"]
+              ]
+            },
+            {
+              id: "monitor",
+              label: "心电监护仪",
+              x: "0%",
+              y: "34%",
+              w: "20%",
+              h: "34%",
+              lockedUntil: 3,
+              dialogue: [
+                ["我", "爷爷你看，血压还是有点高，心跳还是快了，我去问问医生今天的情况。"]
+              ],
+              next: "doctor"
+            }
+          ]
+        },
+        doctor: {
+          className: "scene-doctor",
+          title: "医生办公室",
+          image: "assets/doctor-office-v1.png",
+          status: "看看桌上的检验单和电脑",
+          hotspots: [
+            {
+              id: "lab",
+              label: "检验单",
+              x: "31%",
+              y: "71%",
+              w: "37%",
+              h: "27%",
+              dialogue: [
+                ["我", "周医生，我爷爷目前这个状况还是不太好，我们还是维持原有的治疗方案吗？"],
+                ["周医生", "是的，这个情况很危险了，你爷爷年纪也大了。这样拖下去老人家也遭罪。"]
+              ]
+            },
+            {
+              id: "computer",
+              label: "电脑屏幕",
+              x: "5%",
+              y: "22%",
+              w: "36%",
+              h: "38%",
+              dialogue: [
+                ["我", "周医生，现在的状况是必须进行血液透析是吗。"],
+                ["周医生", "是的，血液透析目前是必须的，他血液内的钠钾离子情况目前对生命还是有很大威胁的，有条件我们必须要进行透析的，这样至少能保证他的生命，但是具体后续的情况我们科室还是要再研判。"]
+              ]
+            },
+            {
+              id: "door",
+              label: "门外",
+              x: "49%",
+              y: "2%",
+              w: "27%",
+              h: "74%",
+              lockedUntil: 2,
+              dialogue: [
+                ["我", "不好意思周医生，我这边来了个电话，我先去接一下。"],
+                ["周医生", "好的，你先忙。"]
+              ],
+              next: "hallway"
+            }
+          ]
+        },
+        hallway: {
+          className: "scene-hallway",
+          title: "诊室外的走廊",
+          image: "assets/hospital-corridor-agent.png",
+          status: "点一下任意地方",
+          freeClick: true,
+          clickHint: "点一下任意地方",
+          dialogue: [
+            ["中介", "您好女士，您的房子我们已经挂出去了。预计周六会有人过去看房子，您看您这边方便吗。"],
+            ["我", "好的好的，方便的，价格您那边谈好了吧，我是不能再讲价的。我卖房子是为了给老人看病的，一分也少不了。"],
+            ["中介", "您放心女士，这个我们都谈好了，一旦对房子满意对方可以直接付全款。"],
+            ["我", "好呢好呢，麻烦您了，那我们周六见。"]
+          ],
+          next: "return"
+        },
+        return: {
+          className: "scene-return",
+          title: "回到病房",
+          image: "assets/hospital-bedside-v2-return-new.png",
+          status: "天已经暗下来了",
+          hotspots: [
+            {
+              id: "return-window",
+              label: "窗外",
+              x: "85%",
+              y: "17%",
+              w: "15%",
+              h: "40%",
+              dialogue: [
+                ["我", "爷爷，十点多啦，咱们休息吧。"],
+                ["爷爷", "我现在不太困，睡也行。"]
+              ]
+            },
+            {
+              id: "return-hand",
+              label: "爷爷的手",
+              x: "61%",
+              y: "64%",
+              w: "30%",
+              h: "25%",
+              dialogue: [
+                ["我", "爷爷，你有啥想从家里拿过来的东西吗？我待会回老房子一趟整理整理，给你把东西带过来呗。"],
+                ["爷爷", "你给我把眼镜带过来吧，我好多看看。"],
+                ["我", "哎呦，爷爷你说啥呢！肯定能恢复健康的呀，到时候我还要带爷爷出去玩呢。"]
+              ]
+            }
+          ]
+        },
+        oldHouse: {
+          className: "scene-old-house",
+          title: "老房子客厅",
+          image: "assets/old-house-glasses-v1.png",
+          status: "找到爷爷的眼镜",
+          hotspots: [
+            {
+              id: "glasses",
+              label: "爷爷的眼镜",
+              x: "37%",
+              y: "58%",
+              w: "28%",
+              h: "20%",
+              completeInteraction: true,
+              dialogue: [
+                ["我", "找到了，爷爷的眼镜。这个别忘带，再收拾收拾别的地方吧，人家要来看房子呢。"]
+              ],
+              next: "dayDinner"
+            }
+          ]
+        },
+        dayDinner: {
+          className: "scene-old-house",
+          title: "老房子客厅 · 记忆",
+          image: "assets/day-dinner-v1.png",
+          status: "七点半，先吃饭",
+          hotspots: [
+            {
+              id: "spinach-meatballs",
+              label: "菠菜炒肉丸",
+              x: "34%",
+              y: "52%",
+              w: "25%",
+              h: "23%",
+              dialogue: [
+                ["爷爷", "多吃点菠菜，平常都不好好吃菜，我把这个跟肉丸炒在一起，你多吃点。"],
+                ["我", "好嘛！"]
+              ]
+            },
+            {
+              id: "apple",
+              label: "苹果",
+              x: "62%",
+              y: "52%",
+              w: "31%",
+              h: "25%",
+              dialogue: [
+                ["我", "爷爷，你是不是又切完蒜没洗刀就切苹果，一股蒜味！"],
+                ["爷爷", "凑活着吃吧，小孩子别那么多事。"]
+              ]
+            },
+            {
+              id: "chicken",
+              label: "土豆炖鸡肉",
+              x: "47%",
+              y: "40%",
+              w: "25%",
+              h: "22%",
+              dialogue: [
+                ["爷爷", "待会给你爸妈带点，他们上班累，就别让他们做饭了。"],
+                ["我", "好，我知道了。"]
+              ]
+            }
+          ]
+        },
+        grandpaRoom: {
+          className: "scene-grandpa-room",
+          title: "爷爷的旧房间",
+          image: "assets/scene3-grandpa-room-01.png",
+          status: "点一下任意地方",
+          freeClick: true,
+          clickHint: "点一下任意地方",
+          dialogue: [
+            ["我", "早上了啊，得抓紧收拾了，明天看房的人就来了。"],
+            ["我", "这柜子也陪我好多年了啊，现在都掉漆了。真舍不得扔啊。"],
+            ["我", "以前太矮了，只能看到糖果。总想着让爷爷给我拿糖吃。现在跟爷爷一样高了，看到的还是不一样了。"]
+          ],
+          effect: "dizzy",
+          next: "candyMemory"
+        },
+        candyMemory: {
+          className: "scene-grandpa-room",
+          title: "爷爷的旧房间 · 糖果",
+          image: "assets/scene3-grandpa-room-candy.png",
+          status: "点一下画面",
+          freeClick: true,
+          clickHint: "点一下画面",
+          dialogue: [
+            ["我", "以前，我总爱吃大白兔奶糖。爷爷原来在我去上学的时候，给我攒了这么多啊。"]
+          ],
+          next: "smallShop"
+        },
+        smallShop: {
+          className: "scene-small-shop",
+          title: "小卖部",
+          image: "assets/scene4-small-shop.png",
+          status: "看看小卖部里的东西",
+          hotspots: [
+            {
+              id: "shopkeeper",
+              label: "小卖部老板",
+              x: "73%",
+              y: "18%",
+              w: "27%",
+              h: "42%",
+              dialogue: [
+                ["我", "阿姨，我想要这个奶糖。"],
+                ["老板", "你爷爷又带你来买糖啦，好，阿姨给你装。"]
+              ]
+            },
+            {
+              id: "grandpa",
+              label: "爷爷的背影",
+              x: "31%",
+              y: "3%",
+              w: "22%",
+              h: "58%",
+              dialogue: [
+                ["我", "爷爷，你想吃什么糖呀？"],
+                ["爷爷", "不管我，你选自己爱吃的，爷爷给你买。"]
+              ]
+            },
+            {
+              id: "seasoning-shelf",
+              label: "调料柜",
+              x: "0%",
+              y: "0%",
+              w: "31%",
+              h: "39%",
+              dialogue: [
+                ["爷爷", "老板，来一瓶酱油，家里没酱油了。"],
+                ["老板", "好，待会一起结账是吧。"],
+                ["爷爷", "不着急，等我孙女选完。"]
+              ]
+            }
+          ]
+        },
+        homeRoad: {
+          className: "scene-home-road",
+          title: "回家路上",
+          image: "assets/scene4-home-road.png",
+          status: "回家的路上",
+          hotspots: [
+            {
+              id: "slide",
+              label: "彩色滑梯",
+              x: "57%",
+              y: "48%",
+              w: "17%",
+              h: "33%",
+              dialogue: [
+                ["我", "爷爷，我要去玩滑梯。"],
+                ["爷爷", "好，那我去看他们下棋。你要不要跟那些小朋友一起玩炸卡呀？"],
+                ["我", "不用，爷爷，我不会玩那个。"]
+              ]
+            }
+          ]
+        },
+        kitchen: {
+          className: "scene-kitchen",
+          title: "家里的厨房",
+          image: "assets/scene5-home-kitchen.png",
+          status: "回到家里",
+          hotspots: [
+            {
+              id: "key",
+              label: "桌上的钥匙",
+              x: "58%",
+              y: "72%",
+              w: "20%",
+              h: "17%",
+              dialogue: [
+                ["我", "记得以前，我没有钥匙的时候，老是去棋牌室找爷爷。"]
+              ]
+            }
+          ]
+        },
+        chessRoom: {
+          className: "scene-chess-room",
+          title: "棋牌室",
+          image: "assets/scene6-chess-room.png",
+          status: "爷爷在看报纸",
+          hotspots: [
+            {
+              id: "grandpa-chair",
+              label: "爷爷",
+              x: "16%",
+              y: "36%",
+              w: "20%",
+              h: "42%",
+              dialogue: [
+                ["我", "爷爷，我放学了。"],
+                ["爷爷", "我孙女回来了，我就先走了。"],
+                ["老葛", "那行，你先走。明天咱们再一起玩。"]
+              ]
+            }
+          ]
+        },
+        pharmacy: {
+          className: "scene-pharmacy",
+          title: "医院取药",
+          image: "assets/hospital-pharmacy-v1.png",
+          status: "点一下取药窗口后的药师",
+          hotspots: [
+            {
+              id: "pharmacist",
+              label: "药师",
+              x: "44%",
+              y: "22%",
+              w: "14%",
+              h: "37%",
+              dialogue: [
+                ["药师", "要拿点什么药？"],
+                ["我", "我照单子拿药。"],
+                ["药师", "……老爷子情况不轻啊。利尿的、护心的，还有一个是治认知的，都有货。"],
+                ["药师", "我给你配之前问几句——他现在还在吃别的药吗？别的医院开的，或者亲戚推荐的，都算。"],
+                ["我", "还吃降压药。"],
+                ["药师", "好，我知道了。利尿的这个早上吃，别晚上吃。还有，吃这药容易掉钾，你留意他是不是没劲、腿抽筋。"],
+                ["我", "好。"]
+              ],
+              next: "mri"
+            }
+          ]
+        },
+        mri: {
+          className: "scene-mri",
+          title: "核磁共振检查室",
+          image: "assets/hospital-mri-v1.png",
+          status: "等爷爷出来",
+          hotspots: [
+            {
+              id: "mri-doctor",
+              label: "医生",
+              x: "62%",
+              y: "16%",
+              w: "17%",
+              h: "66%",
+              dialogue: [
+                ["医生", "老人家核磁已经做完了，家属就等结果吧。到时候主治医师会跟你们详谈。"],
+                ["我", "好的好的，谢谢医生，麻烦您了。"]
+              ]
+            },
+            {
+              id: "mri-grandpa",
+              label: "爷爷",
+              x: "49%",
+              y: "18%",
+              w: "15%",
+              h: "70%",
+              lockedUntil: 1,
+              dialogue: [
+                ["我", "爷爷，咱们先回病房吧，不着急，慢慢走。"],
+                ["爷爷", "好。"]
+              ],
+              effect: "memory",
+              memoryLine: "mri"
+            }
+          ]
+        },
+        momCall: {
+          className: "scene-mom-call",
+          title: "老房子 · 窗边",
+          image: "assets/mom-call-v1.png",
+          status: "看看手机和窗外",
+          hotspots: [
+            {
+              id: "mom-phone",
+              label: "手机界面",
+              x: "50%",
+              y: "27%",
+              w: "17%",
+              h: "55%",
+              once: true,
+              dialogue: [
+                ["我", "喂？妈妈，有啥事啊，我在爷爷家呢。"],
+                ["妈妈", "行，你别忘了把东西带上。"],
+                ["我", "哎呦你放心吧，忘不了。"],
+                ["妈妈", "行，那我挂了。"],
+                ["我", "拜拜。"]
+              ]
+            },
+            {
+              id: "mom-window",
+              label: "窗外的花架",
+              x: "10%",
+              y: "4%",
+              w: "49%",
+              h: "65%",
+              once: true,
+              dialogue: [
+                ["我", "我记得以前，爷爷老是和他的朋友们在花架下面乘凉聊天来着。"]
+              ]
+            }
+          ]
+        },
+        wisteriaChat: {
+          className: "scene-wisteria",
+          title: "紫藤花架下",
+          image: "assets/scene7-wisteria-bench.png",
+          status: "点一下任意地方",
+          freeClick: true,
+          clickHint: "点一下任意地方",
+          dialogue: [
+            ["爷爷", "那个谁家的儿子当上总工了。"],
+            ["老葛", "那原来那个总工呢？退休啦？"],
+            ["爷爷", "没有，好像是调到别的队去啦。"],
+            ["老葛", "噢，也挺好的。咱们这项目少，赚钱难呢。"],
+            ["爷爷", "是啊，时代不一样喽。"],
+            ["我", "爷爷，你们在聊什么呀。"],
+            ["爷爷", "没什么，等你长大就知道了。"]
+          ],
+          next: "cemetery"
+        },
+        cemetery: {
+          className: "scene-cemetery",
+          title: "爷爷墓前",
+          image: "assets/scene8-cemetery.png",
+          status: "点一下香炉或墓碑",
+          hotspots: [
+            {
+              id: "incense",
+              label: "香炉",
+              x: "42%",
+              y: "60%",
+              w: "14%",
+              h: "18%",
+              once: true,
+              dialogue: [
+                ["妈妈", "给爷爷上柱香吧，爷爷最喜欢你了。"]
+              ]
+            },
+            {
+              id: "tombstone",
+              label: "墓碑",
+              x: "28%",
+              y: "7%",
+              w: "29%",
+              h: "54%",
+              once: true,
+              dialogue: [
+                ["爸爸", "东西你带了吧？"],
+                ["我", "嗯，带了。在我包里。"]
+              ]
+            }
+          ],
+          revealFromBlack: true,
+          revealHold: 1700
+        },
+        cemeteryGlasses: {
+          className: "scene-cemetery",
+          title: "爷爷墓前",
+          image: "assets/scene9-cemetery-glasses.png",
+          status: "点一下眼镜",
+          hotspots: [
+            {
+              id: "glasses",
+              label: "爷爷的眼镜",
+              x: "55%",
+              y: "78%",
+              w: "27%",
+              h: "20%",
+              once: true,
+              dialogue: [
+                ["我", "爷爷，你的眼镜我给你带来了。往后的路我也会好好走下去的。"]
+              ],
+              effect: "ending"
+            }
+          ],
+          endingText: "现在想来，爷爷就像我童年的一个符号。有他在，我总能心安理得地做一个小孩。死亡是凉爽的夏夜，生命是闷热的白天。这是一场属于爷爷的小憩。物是人非事事休，欲语泪先流。谨以此片，纪念我的爷爷和再也回不去的那个夏天。谢谢你陪我走过漫长岁月，也谢谢你看到这里。",
+          endingTitle: "The end.",
+          endingTextDuration: 9000,
+          revealFromBlack: true,
+          revealHold: 1200
+        }
+      };
+
+      const game = document.getElementById("game");
+      const blurBackdrop = document.getElementById("blurBackdrop");
+      const imageFrame = document.getElementById("imageFrame");
+      const sceneImage = document.getElementById("sceneImage");
+      const hotspotLayer = document.getElementById("hotspotLayer");
+      const sceneTitle = document.getElementById("sceneTitle");
+      const sceneStatus = document.getElementById("sceneStatus");
+      const chapterName = document.getElementById("chapterName");
+      const progress = document.getElementById("progress");
+      const dialogue = document.getElementById("dialogue");
+      const speaker = document.getElementById("speaker");
+      const dialogueText = document.getElementById("dialogueText");
+      const nextButton = document.getElementById("nextButton");
+      const hint = document.getElementById("hint");
+      const blackout = document.getElementById("blackout");
+      const completion = document.getElementById("completion");
+      const memoryText = document.getElementById("memoryText");
+      const transitionText = document.getElementById("transitionText");
+      const restartButton = document.getElementById("restartButton");
+      const restartFooter = document.getElementById("restartFooter");
+
+      let sceneKey = "bedside";
+      let scene = scenes[sceneKey];
+      let interactionCount = 0;
+      let activeInteraction = null;
+      let dialogueIndex = 0;
+      let transitioning = false;
+      let completed = false;
+      let softeningTimer = null;
+      let revealTimer = null;
+      let endingTimers = [];
+      let visitedHotspots = new Set();
+
+      const sceneOrder = ["bedside", "doctor", "hallway", "return", "oldHouse", "dayDinner", "grandpaRoom", "candyMemory", "smallShop", "homeRoad", "kitchen", "chessRoom", "pharmacy", "mri", "momCall", "wisteriaChat", "cemetery", "cemeteryGlasses"];
+      const memoryLines = {
+        dayDinner: "回忆起来，我的童年好像就在昨天。时光滴滴答答地走过无数个平凡的晚上七点半。在无数场奔波里，我都快忘记了那张属于我的餐桌。在这片餐桌上，我是小小的国王，爷爷是我一个人的骑士。他在油烟和铁锅边征战，我在小小的茶几上品尝胜利的果实。",
+        homeRoad: "这段路我们一起走过很多遍，这是属于我们的回家路。对于我来说，找回童年的记忆如此轻松，只需要剥开糖纸，就可以品尝到那时的雀跃、期待和心安。那时候，爷爷是我的保镖，我在他的看护下爬上小小的山丘，湍过急浚的河流。",
+        chessRoom: "爷爷总是坐在那里，看着报纸等我。他的朋友们也总是默契地见到我就掐了烟，暂停了牌局，仿佛送孙女回家是他们觉得顶顶重要的事。爷爷就像是一把属于我的钥匙，连接着家的宁静和外面的喧嚣，因而见到爷爷，我也总能轻快地说出那句：我回家了。",
+        mri: "以前，总是爷爷拉着我的手，带我走过孩提时代。如今，轮到我牵住他的手了。医院里中弥漫着青涩的消毒水味和尖锐的酒精味。看着爷爷日益憔悴的脸，我总希望成为爷爷的铠甲，努力替他抵御那些悄然靠近的敌人。"
+      };
+
+      function renderProgress() {
+        progress.innerHTML = sceneOrder.map((key, index) => (
+          `<i class="${index <= sceneOrder.indexOf(sceneKey) ? "active" : ""}"></i>`
+        )).join("");
+      }
+
+      function setScene(key) {
+        sceneKey = key;
+        scene = scenes[key];
+        clearEndingTimers();
+        game.className = scene.className;
+        sceneTitle.textContent = scene.title;
+        sceneStatus.textContent = scene.status;
+        chapterName.textContent = ["oldHouse", "dayDinner", "grandpaRoom", "candyMemory", "smallShop", "homeRoad", "kitchen", "chessRoom"].includes(key)
+          ? "第二部分 · 老房子"
+          : `第一部分 · ${scene.title}`;
+        renderProgress();
+        dialogue.classList.remove("visible");
+        completion.classList.remove("visible");
+        memoryText.classList.remove("visible");
+        restartFooter.classList.remove("visible");
+        activeInteraction = null;
+        dialogueIndex = 0;
+        interactionCount = 0;
+        visitedHotspots = new Set();
+        clearTimeout(revealTimer);
+        revealTimer = null;
+        hint.textContent = scene.freeClick ? (scene.clickHint || "点一下画面") : scene.status;
+        imageFrame.classList.remove("ready");
+        imageFrame.classList.remove("dizzy");
+        imageFrame.classList.add("faded");
+        sceneImage.src = scene.image;
+        blurBackdrop.style.backgroundImage = `url("${scene.image}")`;
+        sceneImage.onload = () => {
+          imageFrame.classList.remove("faded");
+          if (scene.revealFromBlack) {
+            imageFrame.classList.remove("ready");
+            return;
+          }
+          setTimeout(() => imageFrame.classList.add("ready"), 220);
+        };
+        renderHotspots();
+      }
+
+      function renderHotspots() {
+        hotspotLayer.innerHTML = "";
+        if (scene.freeClick) return;
+
+        scene.hotspots.forEach(item => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "hotspot";
+          button.dataset.id = item.id;
+          button.setAttribute("aria-label", item.label);
+          button.style.setProperty("--x", item.x);
+          button.style.setProperty("--y", item.y);
+          button.style.setProperty("--w", item.w);
+          button.style.setProperty("--h", item.h);
+
+          const visited = item.once && visitedHotspots.has(item.id);
+          const locked = !visited && item.lockedUntil && interactionCount < item.lockedUntil;
+          if (visited) {
+            button.classList.add("completed");
+          } else if (locked) {
+            button.classList.add("locked");
+          } else {
+            button.classList.add("available");
+            button.addEventListener("click", event => {
+              event.stopPropagation();
+              beginInteraction(item);
+            });
+          }
+          hotspotLayer.appendChild(button);
+        });
+      }
+
+      function beginInteraction(item) {
+        if (transitioning || activeInteraction || completed) return;
+        activeInteraction = item;
+        dialogueIndex = 0;
+        interactionCount += 1;
+        showDialogue();
+        renderHotspots();
+        if (item.effect === "soften") {
+          clearTimeout(softeningTimer);
+          imageFrame.style.filter = "blur(2px)";
+          softeningTimer = setTimeout(() => {
+            imageFrame.style.filter = "";
+          }, 3300);
+        }
+      }
+
+      function showDialogue() {
+        if (!activeInteraction) return;
+        const current = activeInteraction.dialogue[dialogueIndex];
+        speaker.textContent = current[0];
+        dialogueText.textContent = current[1];
+        dialogue.classList.add("visible");
+        hint.textContent = "点击继续";
+      }
+
+      function advanceDialogue() {
+        if (!activeInteraction || transitioning) return;
+        dialogueIndex += 1;
+        if (dialogueIndex < activeInteraction.dialogue.length) {
+          showDialogue();
+          return;
+        }
+
+        const next = activeInteraction.next;
+        const completesInteraction = activeInteraction.completeInteraction;
+        const effect = activeInteraction.effect;
+        const memoryLine = activeInteraction.memoryLine;
+        const interactionId = activeInteraction.id;
+        const interactionIsOnce = activeInteraction.once;
+        activeInteraction = null;
+        if (interactionIsOnce) {
+          visitedHotspots.add(interactionId);
+          renderHotspots();
+        }
+        dialogue.classList.remove("visible");
+        hint.textContent = scene.freeClick ? (scene.clickHint || "点一下画面") : scene.status;
+
+        if (effect === "dizzy") {
+          transitioning = true;
+          imageFrame.classList.add("dizzy");
+          window.setTimeout(() => {
+            blackout.classList.add("visible");
+          }, 2200);
+          window.setTimeout(() => {
+            imageFrame.classList.remove("dizzy");
+            if (next && scenes[next]) {
+              transitioning = false;
+              transitionTo(next);
+            } else {
+              transitioning = false;
+            }
+          }, 3000);
+          return;
+        }
+
+        if (effect === "blackout") {
+          completed = true;
+          transitioning = true;
+          sceneStatus.textContent = "";
+          hint.textContent = "";
+          blackout.classList.add("visible");
+          window.setTimeout(() => {
+            transitioning = false;
+          }, 820);
+          return;
+        }
+
+        if (effect === "memory") {
+          completed = true;
+          sceneStatus.textContent = "";
+          hint.textContent = "";
+          memoryText.textContent = memoryLines[memoryLine] || "";
+          blackout.classList.add("visible");
+          window.setTimeout(() => {
+            memoryText.classList.add("visible");
+          }, 900);
+          return;
+        }
+
+        if (effect === "ending") {
+          showEnding(scene);
+          return;
+        }
+
+        if (next) {
+          const transitionLine = sceneKey === "oldHouse" && next === "dayDinner"
+            ? "小时候，我总在这里吃饭。"
+            : sceneKey === "wisteriaChat" && next === "cemetery"
+              ? "爷爷，我长大了。"
+            : "";
+          window.setTimeout(() => transitionTo(next, transitionLine), sceneKey === "bedside" ? 700 : 850);
+        } else if (completesInteraction) {
+          hint.textContent = scene.status;
+        }
+
+        if (sceneKey === "smallShop" && interactionCount >= 3) {
+          window.setTimeout(finishSmallShop, 220);
+        }
+
+        if (sceneKey === "cemetery" && !activeInteraction) {
+          window.setTimeout(finishCemetery, 220);
+        }
+      }
+
+      function beginHallwayConversation() {
+        if (activeInteraction || transitioning || completed) return;
+        activeInteraction = {
+          dialogue: scene.dialogue,
+          next: scene.next,
+          effect: scene.effect
+        };
+        dialogueIndex = 0;
+        showDialogue();
+      }
+
+      function transitionTo(nextKey, transitionLine = "") {
+        if (transitioning) return;
+        transitioning = true;
+        const targetScene = scenes[nextKey];
+        transitionText.textContent = transitionLine;
+        transitionText.classList.toggle("visible", Boolean(transitionLine));
+        blackout.classList.add("visible");
+        imageFrame.classList.add("faded");
+        window.setTimeout(() => {
+          setScene(nextKey);
+          if (targetScene && targetScene.revealFromBlack) {
+            clearTimeout(revealTimer);
+            revealTimer = window.setTimeout(() => {
+              blackout.classList.remove("visible");
+              transitionText.classList.remove("visible");
+              imageFrame.classList.add("ready");
+              transitioning = false;
+            }, targetScene.revealHold || 1500);
+            return;
+          }
+          window.setTimeout(() => {
+            blackout.classList.remove("visible");
+            transitionText.classList.remove("visible");
+            transitioning = false;
+          }, transitionLine ? 900 : 0);
+        }, 820);
+      }
+
+      function clearEndingTimers() {
+        endingTimers.forEach(timer => window.clearTimeout(timer));
+        endingTimers = [];
+      }
+
+      function showEnding(endingScene) {
+        completed = true;
+        transitioning = true;
+        sceneStatus.textContent = "";
+        hint.textContent = "";
+        clearEndingTimers();
+        memoryText.classList.remove("visible");
+        memoryText.textContent = endingScene.endingText;
+        blackout.classList.add("visible");
+
+        endingTimers.push(window.setTimeout(() => {
+          memoryText.classList.add("visible");
+        }, 900));
+
+        const firstTextEnd = 900 + (endingScene.endingTextDuration || 9000);
+        endingTimers.push(window.setTimeout(() => {
+          memoryText.classList.remove("visible");
+        }, firstTextEnd));
+
+        endingTimers.push(window.setTimeout(() => {
+          memoryText.textContent = endingScene.endingTitle || "The end.";
+          memoryText.classList.add("visible");
+          transitioning = false;
+        }, firstTextEnd + 900));
+      }
+
+      function finishReturn() {
+        if (sceneKey !== "return" || completed || interactionCount < 2 || activeInteraction) return;
+        transitionTo("oldHouse");
+      }
+
+      function finishDayDinner() {
+        if (sceneKey !== "dayDinner" || completed || interactionCount < 3 || activeInteraction) return;
+        completed = true;
+        sceneStatus.textContent = "";
+        hint.textContent = "";
+        memoryText.textContent = memoryLines.dayDinner;
+        blackout.classList.add("visible");
+        window.setTimeout(() => memoryText.classList.add("visible"), 900);
+      }
+
+      function finishSmallShop() {
+        if (sceneKey !== "smallShop" || transitioning || interactionCount < 3) return;
+        transitionTo("homeRoad");
+      }
+
+      function finishHomeRoad() {
+        if (sceneKey !== "homeRoad" || completed || activeInteraction || transitioning || interactionCount < scene.hotspots.length) return;
+        completed = true;
+        sceneStatus.textContent = "";
+        hint.textContent = "";
+        memoryText.textContent = memoryLines.homeRoad;
+        blackout.classList.add("visible");
+        window.setTimeout(() => {
+          memoryText.classList.add("visible");
+        }, 900);
+      }
+
+      function finishKitchen() {
+        if (sceneKey !== "kitchen" || completed || activeInteraction || transitioning || interactionCount < 1) return;
+        transitionTo("chessRoom");
+      }
+
+      function finishChessRoom() {
+        if (sceneKey !== "chessRoom" || completed || activeInteraction || transitioning || interactionCount < 1) return;
+        completed = true;
+        sceneStatus.textContent = "";
+        hint.textContent = "";
+        memoryText.textContent = memoryLines.chessRoom;
+        blackout.classList.add("visible");
+        window.setTimeout(() => {
+          memoryText.classList.add("visible");
+        }, 900);
+      }
+
+      function finishMomCall() {
+        if (sceneKey !== "momCall" || completed || activeInteraction || transitioning) return;
+        if (!scene.hotspots.every(item => !item.once || visitedHotspots.has(item.id))) return;
+        transitionTo("wisteriaChat");
+      }
+
+      function finishCemetery() {
+        if (sceneKey !== "cemetery" || activeInteraction || transitioning) return;
+        if (!scene.hotspots.every(item => !item.once || visitedHotspots.has(item.id))) return;
+        transitionTo("cemeteryGlasses");
+      }
+
+      function restart() {
+        completed = false;
+        clearEndingTimers();
+        restartFooter.classList.remove("visible");
+        completion.classList.remove("visible");
+        blackout.classList.remove("visible");
+        memoryText.classList.remove("visible");
+        transitionText.classList.remove("visible");
+        clearTimeout(revealTimer);
+        revealTimer = null;
+        setScene("bedside");
+      }
+
+      hotspotLayer.addEventListener("click", event => {
+        event.stopPropagation();
+      });
+
+      nextButton.addEventListener("click", event => {
+        event.stopPropagation();
+        advanceDialogue();
+        if (sceneKey === "return" && !activeInteraction) {
+          window.setTimeout(finishReturn, 220);
+        }
+        if (sceneKey === "dayDinner" && !activeInteraction) {
+          window.setTimeout(finishDayDinner, 220);
+        }
+        if (sceneKey === "smallShop" && !activeInteraction) {
+          window.setTimeout(finishSmallShop, 220);
+        }
+        if (sceneKey === "homeRoad" && !activeInteraction) {
+          window.setTimeout(finishHomeRoad, 220);
+        }
+        if (sceneKey === "kitchen" && !activeInteraction) {
+          window.setTimeout(finishKitchen, 220);
+        }
+        if (sceneKey === "chessRoom" && !activeInteraction) {
+          window.setTimeout(finishChessRoom, 220);
+        }
+        if (sceneKey === "momCall" && !activeInteraction) {
+          window.setTimeout(finishMomCall, 220);
+        }
+      });
+
+      imageFrame.addEventListener("click", event => {
+        if (!scene.freeClick || activeInteraction || transitioning || completed) return;
+        event.preventDefault();
+        beginHallwayConversation();
+      });
+
+      game.addEventListener("click", event => {
+        if (scene.freeClick && !activeInteraction && !transitioning && !completed) {
+          beginHallwayConversation();
+        }
+      });
+
+      window.addEventListener("keydown", event => {
+        if (event.code !== "Space" && event.code !== "Enter") return;
+        event.preventDefault();
+        if (activeInteraction) {
+          advanceDialogue();
+          if (sceneKey === "return" && !activeInteraction) {
+            window.setTimeout(finishReturn, 220);
+          }
+          if (sceneKey === "dayDinner" && !activeInteraction) {
+            window.setTimeout(finishDayDinner, 220);
+          }
+          if (sceneKey === "smallShop" && !activeInteraction) {
+            window.setTimeout(finishSmallShop, 220);
+          }
+          if (sceneKey === "homeRoad" && !activeInteraction) {
+            window.setTimeout(finishHomeRoad, 220);
+          }
+          if (sceneKey === "kitchen" && !activeInteraction) {
+            window.setTimeout(finishKitchen, 220);
+          }
+          if (sceneKey === "chessRoom" && !activeInteraction) {
+            window.setTimeout(finishChessRoom, 220);
+          }
+          if (sceneKey === "momCall" && !activeInteraction) {
+            window.setTimeout(finishMomCall, 220);
+          }
+        } else if (scene.freeClick) {
+          beginHallwayConversation();
+        }
+      });
+
+      restartButton.addEventListener("click", restart);
+      restartFooter.addEventListener("click", restart);
+
+      function continueFromMemory() {
+        if (sceneKey === "dayDinner" && completed && !transitioning) {
+          completed = false;
+          transitionTo("grandpaRoom");
+          return;
+        }
+        if (sceneKey === "homeRoad" && completed && !transitioning) {
+          completed = false;
+          transitionTo("kitchen");
+          return;
+        }
+        if (sceneKey === "chessRoom" && completed && !transitioning) {
+          completed = false;
+          transitionTo("pharmacy");
+          return;
+        }
+        if (sceneKey === "mri" && completed && !transitioning) {
+          completed = false;
+          transitionTo("momCall");
+          return;
+        }
+      }
+
+      memoryText.addEventListener("click", continueFromMemory);
+      game.addEventListener("click", continueFromMemory);
+
+      setScene("bedside");
+    })();
+  </script>
+</body>
+</html>
